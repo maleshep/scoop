@@ -1,0 +1,11 @@
+{
+  "name": "scoop",
+  "version": "0.1.0",
+  "description": "Extract your LinkedIn saved posts into a structured research index",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scripts/scrape.mjs",
+    "launch": "pwsh scripts/launch.ps1"
+  },
+  "license": "MIT"
+}
