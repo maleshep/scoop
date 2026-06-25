@@ -14,7 +14,13 @@
 //   5. Extracts direct github.com URLs from the comments container.
 //   6. Writes data/posts-github.json with githubRepos attached per post.
 //
-// Run with:  node scripts/scrape-github-comments.mjs
+// Incremental by default: if data/posts-github.json already exists, any
+// activityId present in it is treated as already-scraped and skipped. Only
+// posts with linkInComments=true AND a new activityId are visited. Prior
+// githubRepos are carried forward so nothing is lost. Pass --full to force
+// a complete re-scrape of every candidate.
+//
+// Run with:  node scripts/scrape-github-comments.mjs [--full] [limit]
 
 import net from "node:net";
 import crypto from "node:crypto";
@@ -30,6 +36,27 @@ const HOST = "127.0.0.1";
 const PORT = 5192;
 const INPUT = path.join(ROOT, "data", "posts.json");
 const OUTPUT = path.join(ROOT, "data", "posts-github.json");
+
+// Incremental mode: skip activityIds already present in the enriched file.
+const argv = process.argv.slice(2);
+const FULL = argv.includes("--full");
+const positional = argv.filter((a) => !a.startsWith("--"));
+const limit = positional[0] ? parseInt(positional[0], 10) : null;
+
+// Load any previously-enriched dataset so we can carry githubRepos forward
+// and skip already-scraped posts. Returns {posts, scrapedIds} or null.
+function loadExisting() {
+  if (FULL || !fs.existsSync(OUTPUT)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(OUTPUT, "utf8"));
+    const posts = Array.isArray(raw) ? raw : raw.posts || [];
+    const scrapedIds = new Set(posts.map((p) => p.activityId));
+    const byId = new Map(posts.map((p) => [p.activityId, p]));
+    return { posts, scrapedIds, byId };
+  } catch {
+    return null;
+  }
+}
 
 // ---------- HTTP / WebSocket plumbing (same pattern as scrape.mjs) ----------
 
@@ -161,11 +188,32 @@ function isRepoUrl(url) {
 
   const posts = JSON.parse(fs.readFileSync(INPUT, "utf8"));
   const allCandidates = posts.filter((p) => p.linkInComments && p.postUrl);
-  const limit = process.argv[2] ? parseInt(process.argv[2], 10) : null;
-  const candidates = limit ? allCandidates.slice(0, limit) : allCandidates;
+  const existing = loadExisting();
+
+  // Seed every post with carried-forward githubRepos so prior scrapes survive.
+  if (existing) {
+    for (const post of posts) {
+      const prev = existing.byId.get(post.activityId);
+      if (prev && Array.isArray(prev.githubRepos)) post.githubRepos = prev.githubRepos;
+    }
+  }
+
+  // In incremental mode, only visit candidates we have not scraped before.
+  const candidates = existing
+    ? allCandidates.filter((p) => !existing.scrapedIds.has(p.activityId))
+    : allCandidates;
+  const limited = limit ? candidates.slice(0, limit) : candidates;
+
   console.log(`Total posts:         ${posts.length}`);
   console.log(`linkInComments:      ${allCandidates.length}`);
-  if (limit) console.log(`Limiting to first ${limit} for this run`);
+  if (existing) {
+    const skipped = allCandidates.length - candidates.length;
+    console.log(`Already scraped:     ${skipped} (incremental — pass --full to re-scrape)`);
+  } else {
+    console.log(`Mode:                 full scrape${FULL ? " (--full)" : " (no existing dataset)"}`);
+  }
+  console.log(`To scrape this run:  ${limited.length}`);
+  if (limit) console.log(`Limiting to first ${limit}`);
 
   // Connect to Chrome
   console.log("\nConnecting to Chrome DevTools on port " + PORT + "...");
@@ -220,10 +268,10 @@ function isRepoUrl(url) {
   const results = new Map(); // activityId -> [{url, via}]
   let found = 0;
 
-  for (let i = 0; i < candidates.length; i++) {
-    const post = candidates[i];
+  for (let i = 0; i < limited.length; i++) {
+    const post = limited[i];
     process.stdout.write(
-      `\r[${i + 1}/${candidates.length}] ${post.authorName.padEnd(22)} (${(post.timestamp || "").padEnd(4)}) `,
+      `\r[${i + 1}/${limited.length}] ${post.authorName.padEnd(22)} (${(post.timestamp || "").padEnd(4)}) `,
     );
 
     try {
@@ -348,7 +396,7 @@ function isRepoUrl(url) {
 
   const out = {
     total: posts.length,
-    candidates: candidates.length,
+    candidates: limited.length,
     enrichedAt: new Date().toISOString(),
     postsWithGithubRepos: posts.filter((p) => p.githubRepos.length > 0).length,
     posts,
@@ -357,7 +405,7 @@ function isRepoUrl(url) {
 
   console.log("\n=== Comment scrape complete ===");
   console.log(`Output:                ${OUTPUT}`);
-  console.log(`Candidates visited:    ${candidates.length}`);
+  console.log(`Candidates visited:    ${limited.length}`);
   console.log(`Posts w/ GitHub repos: ${out.postsWithGithubRepos}`);
   console.log(`Total GitHub links:    ${posts.reduce((n, p) => n + p.githubRepos.length, 0)}`);
 
