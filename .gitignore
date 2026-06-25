@@ -1,6 +1,18 @@
-node_modules/
+# Chrome / DevTools
+.crush/
+crush.json
+
+# Scraped data (contains LinkedIn session data — don't commit)
 data/
-*.json
-!package.json
+
+# Node
+node_modules/
+package-lock.json
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Editor
+*.swp
+*.swo

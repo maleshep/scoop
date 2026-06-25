@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>hf-poc — moving square</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; height: 100%; overflow: hidden; }
+    .stage {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      color: #eee;
+    }
+    .label {
+      position: absolute; top: 24px; left: 24px;
+      font-size: 18px; letter-spacing: 0.04em;
+      color: rgba(255,255,255,0.6);
+    }
+    .box {
+      width: 160px; height: 160px; border-radius: 24px;
+      background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+      /* The engine drives x/y via seek(); no CSS animation here — must be deterministic. */
+      transform: translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rot, 0deg));
+      transition: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="label">hf-poc — moving square</div>
+    <div class="box" id="box"></div>
+  </div>
+  <script>
+    // The HfProtocol contract: 4 fields, that's it.
+    // The engine reads `duration` to compute totalFrames, then calls `seek(t)`
+    // before each capture. Whatever sets the DOM state from t must be deterministic.
+    const box = document.getElementById("box");
+    window.__hf = {
+      duration: 3.0, // seconds
+      seek(t) {
+        // Simple parametric motion: the box traces a figure-8 over [0, 3]s.
+        // x and y derived from t — no GSAP, no requestAnimationFrame, pure function of t.
+        const u = (t / 3.0) * Math.PI * 4; // 2 full loops
+        const x = Math.sin(u) * 280;
+        const y = Math.sin(u * 2) * 120;
+        const rot = (t / 3.0) * 360;
+        box.style.setProperty("--x", x.toFixed(2) + "px");
+        box.style.setProperty("--y", y.toFixed(2) + "px");
+        box.style.setProperty("--rot", rot.toFixed(2) + "deg");
+      },
+    };
+    // Initialize at t=0 so the first paint is the seek(0) state.
+    window.__hf.seek(0);
+  </script>
+</body>
+</html>

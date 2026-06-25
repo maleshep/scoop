@@ -1,0 +1,14 @@
+{
+  "name": "hf-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal POC: @hyperframes/engine + a 3-second HTML composition → MP4",
+  "scripts": {
+    "start": "node driver.mjs"
+  },
+  "dependencies": {
+    "@hyperframes/engine": "^0.7.3",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+  }
+}
