@@ -34,6 +34,14 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_runs_symbol ON analysis_runs(symbol);
             CREATE INDEX IF NOT EXISTS idx_runs_created ON analysis_runs(created_at DESC);
+            CREATE TABLE IF NOT EXISTS usage_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                symbol TEXT,
+                created_at TEXT NOT NULL
+            );
             """
         )
         conn.commit()
@@ -42,3 +50,16 @@ def init_db() -> None:
     # portfolio/alerts tables live in schema.py
     from api.db.schema import init_portfolio_db
     init_portfolio_db()
+
+
+def log_usage(provider: str, endpoint: str, symbol: str | None = None) -> None:
+    from datetime import datetime
+    conn = get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO usage_log (date, provider, endpoint, symbol, created_at) VALUES (?, ?, ?, ?, ?)",
+            (datetime.now().strftime("%Y-%m-%d"), provider, endpoint, symbol, datetime.now().isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()

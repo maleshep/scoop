@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # explorations/
 
 import analyzer
+import config
 import data_fetcher
 import news_fetcher
 from api.db import AnalysisRepository
@@ -62,6 +63,8 @@ class AnalysisService:
         result = analyzer.analyze_ticker_with(self.provider, tk, news, region, idx, gaps=gaps)
         _is_json_safe(result)
 
+        from api.db.sqlite import log_usage
+        log_usage(config.MODEL_PROVIDER, "analyze", symbol)
         run_id = self.repo.save(symbol, region, result)
 
         # Evaluate any alert rules for this symbol (inline, no scheduler).

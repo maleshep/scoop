@@ -5,7 +5,9 @@ import { Chat } from './pages/Chat'
 import { Portfolio } from './pages/Portfolio'
 import { Alerts } from './pages/Alerts'
 import { DecisionSignals } from './pages/DecisionSignals'
-import { Settings, History, Usage } from './pages/stubs'
+import { Settings } from './pages/Settings'
+import { History } from './pages/History'
+import { Usage } from './pages/Usage'
 
 export default function App() {
   return (
