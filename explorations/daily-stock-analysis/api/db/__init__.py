@@ -4,6 +4,9 @@ import uuid
 from datetime import datetime
 
 from api.db.sqlite import get_conn
+from api.db.schema import (  # noqa: F401
+    init_portfolio_db, PortfolioRepository, AlertRepository,
+)
 
 
 class AnalysisRepository:

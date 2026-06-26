@@ -2,7 +2,10 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Shell } from './components/layout/Shell'
 import { Home } from './pages/Home'
 import { Chat } from './pages/Chat'
-import { Portfolio, Alerts, DecisionSignals, Settings, History, Usage } from './pages/stubs'
+import { Portfolio } from './pages/Portfolio'
+import { Alerts } from './pages/Alerts'
+import { DecisionSignals } from './pages/DecisionSignals'
+import { Settings, History, Usage } from './pages/stubs'
 
 export default function App() {
   return (

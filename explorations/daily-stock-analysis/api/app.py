@@ -17,6 +17,9 @@ from api.db.sqlite import init_db
 from api.routers.analysis import router as analysis_router
 from api.routers.stocks import router as stocks_router
 from api.routers.agent import router as agent_router
+from api.routers.portfolio import router as portfolio_router
+from api.routers.alerts import router as alerts_router
+from api.routers.decision_signals import router as decision_signals_router
 
 
 def create_app() -> FastAPI:
@@ -41,6 +44,9 @@ def create_app() -> FastAPI:
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(stocks_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(portfolio_router, prefix="/api/v1")
+    app.include_router(alerts_router, prefix="/api/v1")
+    app.include_router(decision_signals_router, prefix="/api/v1")
     return app
 
 

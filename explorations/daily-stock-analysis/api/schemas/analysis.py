@@ -24,6 +24,7 @@ class AnalyzeResponse(BaseModel):
     region: str
     report: dict
     gaps: dict
+    alert_triggers: list = []
 
 
 class StockSearchResult(BaseModel):

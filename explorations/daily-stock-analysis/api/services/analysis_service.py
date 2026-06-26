@@ -63,8 +63,14 @@ class AnalysisService:
         _is_json_safe(result)
 
         run_id = self.repo.save(symbol, region, result)
+
+        # Evaluate any alert rules for this symbol (inline, no scheduler).
+        from api.services.alert_service import AlertService
+        triggered = AlertService().evaluate(symbol, result)
+
         return {"run_id": run_id, "symbol": symbol, "region": region,
-                "report": result, "gaps": gaps.summary()}
+                "report": result, "gaps": gaps.summary(),
+                "alert_triggers": triggered}
 
     def list_history(self, limit: int = 50, symbol: str | None = None) -> list[dict]:
         return self.repo.list(limit=limit, symbol=symbol)

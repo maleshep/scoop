@@ -39,3 +39,6 @@ def init_db() -> None:
         conn.commit()
     finally:
         conn.close()
+    # portfolio/alerts tables live in schema.py
+    from api.db.schema import init_portfolio_db
+    init_portfolio_db()
