@@ -86,28 +86,29 @@ def build_skill_arguments(ticker: dict, gaps: list[dict]) -> str:
     )
 
 
-def run_news_pulse(arguments: str) -> str:
-    """Invoke the news-pulse skill via the Claude Code CLI. Returns its output."""
+def run_skill(skill: str, arguments: str) -> str:
+    """Invoke a skill via the Claude Code CLI. Returns its output."""
     try:
         result = subprocess.run(
-            ["claude", "-p", f"/news-pulse {arguments}"],
-            capture_output=True, text=True, timeout=900, encoding="utf-8",
+            ["claude", "-p", f"/{skill} {arguments}"],
+            capture_output=True, text=True, timeout=2400, encoding="utf-8",
         )
         if result.returncode != 0:
             return f"[skill invocation failed: {result.stderr.strip()[:500]}]"
         return result.stdout
     except FileNotFoundError:
-        return ("[claude CLI not found on PATH — invoke manually with:\n"
-                f"  claude -p \"/news-pulse {arguments[:120]}...\"]")
+        return (f"[claude CLI not found on PATH — invoke manually with:\n"
+                f"  claude -p \"/{skill} {arguments[:120]}...\"]")
     except subprocess.TimeoutExpired:
-        return "[skill timed out after 900s]"
+        return "[skill timed out after 2400s]"
 
 
-def save_deep_dive(symbol: str, markdown: str, date_str: str) -> Path:
-    """Write reports/{symbol}/{symbol}-news-{date}.md and update the index."""
+def save_deep_dive(symbol: str, markdown: str, date_str: str, skill: str) -> Path:
+    """Write reports/{symbol}/{symbol}-{skill}-{date}.md and update the index."""
     ticker_dir = REPORT_DIR / symbol
     ticker_dir.mkdir(parents=True, exist_ok=True)
-    path = ticker_dir / f"{symbol}-news-{date_str}.md"
+    slug = skill.replace("/", "-")
+    path = ticker_dir / f"{symbol}-{slug}-{date_str}.md"
     path.write_text(markdown, encoding="utf-8")
 
     index_path = REPORT_DIR / f"deep-dive-index-{date_str}.md"
@@ -128,6 +129,9 @@ def main():
     ap.add_argument("--date", help="Process a specific date's brief (YYYY-MM-DD)")
     ap.add_argument("--ticker", help="Force a single ticker symbol")
     ap.add_argument("--dry-run", action="store_true", help="Show flagged tickers, don't invoke the skill")
+    ap.add_argument("--skill", default="investment-team",
+                    help="Skill to invoke per ticker (default: investment-team; "
+                         "news-pulse for a quick ~10min attribution)")
     args = ap.parse_args()
 
     date_str, analysis_path, gaps_path = find_latest_brief(args.date)
@@ -158,9 +162,9 @@ def main():
         if args.dry_run:
             print("[dry-run — skipping skill invocation]")
             continue
-        print(f"[invoking /news-pulse ...]")
-        report_md = run_news_pulse(arguments)
-        path = save_deep_dive(symbol, report_md, date_str)
+        print(f"[invoking /{args.skill} ...]")
+        report_md = run_skill(args.skill, arguments)
+        path = save_deep_dive(symbol, report_md, date_str, args.skill)
         print(f"[saved {path}]")
         if report_md.startswith("["):
             gaps_out.add(symbol, "skill", "blocker", f"news-pulse invocation did not produce output: {report_md[:120]}")
