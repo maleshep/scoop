@@ -39,6 +39,17 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 
 MODEL = _pick("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+
+# Analyzer model provider. "glm" uses the direct HPC OpenAI-compatible endpoint
+# (localhost:8103); "claude" uses the Merck palantir Bearer-proxy. GLM is the
+# default — cheaper, 1M context, and the anti-reward-hacking module suits the
+# neutral-signal discipline. Claude is the CI fallback when HPC isn't tunnelled.
+MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "glm").lower()
+
+# GLM via HPC SSH tunnel (see Zed settings: "HPC GLM")
+GLM_BASE_URL = os.environ.get("GLM_BASE_URL", "http://localhost:8103/v1")
+GLM_MODEL = os.environ.get("GLM_MODEL", "glm-5.2")
+GLM_API_KEY = os.environ.get("GLM_API_KEY", "sk-dummy")
 OUTPUT_DIR = ROOT / "output"
 HISTORY_PERIOD = "3mo"  # OHLCV lookback for technicals
 

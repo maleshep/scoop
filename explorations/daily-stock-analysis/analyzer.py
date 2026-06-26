@@ -11,6 +11,10 @@ Uses Claude Sonnet via the Anthropic SDK. Returns a JSON object per ticker:
 }
 """
 import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # explorations/
 
 import anthropic
 
@@ -59,11 +63,38 @@ Produce the JSON dashboard. Schema:
 
 
 def _call_llm(prompt: str) -> dict:
-    # Corporate environment routes Anthropic through the Merck "palantir" proxy
-    # which authenticates with a Bearer JWT (ANTHROPIC_AUTH_TOKEN), NOT the
-    # SDK's default x-api-key. When the token+base URL are set, pass the token
-    # as an Authorization header and give the SDK a dummy api_key (it requires
-    # one but the proxy ignores it). Outside the corp net, a plain API key works.
+    provider = config.MODEL_PROVIDER
+    if provider == "glm":
+        return _call_glm(prompt)
+    return _call_claude(prompt)
+
+
+def _call_glm(prompt: str) -> dict:
+    """GLM-5.2 via the direct HPC OpenAI-compatible endpoint (localhost:8103).
+
+    GLM emits reasoning in a separate `reasoning_content` field and the final
+    answer in `content`. We take `content` and parse JSON from it. max_tokens
+    is generous because reasoning consumes budget before the answer is emitted.
+    """
+    from openai import OpenAI
+
+    client = OpenAI(api_key=config.GLM_API_KEY, base_url=config.GLM_BASE_URL)
+    resp = client.chat.completions.create(
+        model=config.GLM_MODEL,
+        max_tokens=2000,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    text = (resp.choices[0].message.content or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`").lstrip("json").strip()
+    return json.loads(text)
+
+
+def _call_claude(prompt: str) -> dict:
+    """Claude via the Merck palantir Bearer-proxy (CI fallback)."""
     if config.ANTHROPIC_AUTH_TOKEN and config.ANTHROPIC_BASE_URL:
         client = anthropic.Anthropic(
             api_key="bearer-auth",  # required by SDK, ignored by proxy
@@ -85,11 +116,21 @@ def _call_llm(prompt: str) -> dict:
     return json.loads(text)
 
 
-def analyze_ticker(tk: dict, news: list[dict], region: str, index: dict) -> dict:
+def analyze_ticker(tk: dict, news: list[dict], region: str, index: dict, gaps=None) -> dict:
     prompt = _user_prompt(tk, news, region, index)
+
+    # Record data-side gaps before calling the LLM, so we know what evidence
+    # the conclusion was (or wasn't) built on.
+    if gaps is not None:
+        if tk.get("pe_ratio") is None:
+            gaps.add(tk["symbol"], "fundamentals", "weak", "P/E ratio missing — valuation context absent")
+        if tk.get("change_1d_pct") is None:
+            gaps.add(tk["symbol"], "price", "blocker", "no 1-day price change — cannot assess daily direction")
+        if not news:
+            gaps.add(tk["symbol"], "news", "blocker", "no news items — conclusion is technicals-only")
+
     try:
         result = _call_llm(prompt)
-        # keep the raw price/technical data alongside the LLM output
         result["price"] = tk["price"]
         result["change_1d_pct"] = tk["change_1d_pct"]
         result["change_1w_pct"] = tk["change_1w_pct"]
@@ -97,6 +138,8 @@ def analyze_ticker(tk: dict, news: list[dict], region: str, index: dict) -> dict
         result["currency"] = tk.get("currency", "")
         return result
     except Exception as e:
+        if gaps is not None:
+            gaps.add(tk["symbol"], "llm", "blocker", f"analysis call failed: {e}")
         return {
             "symbol": tk["symbol"],
             "name": tk.get("name", tk["symbol"]),
