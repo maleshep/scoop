@@ -1,5 +1,6 @@
 reports/
 logs/
+output/
 .env
 __pycache__/
 *.pyc

@@ -27,14 +27,16 @@ daily-stock-analysis brief ──(research_deeper flags)──▶ ai-berkshire s
 
 | Skill | Status | When to use |
 |---|---|---|
-| `news-pulse` | ✅ English port | Rapid (~10 min) attribution of a sharp price move. The direct trigger from the daily brief. |
-| `investment-research` | 🇨🇳 Chinese only (`_zh.md`) | Full four-master comprehensive deep dive on one company. Port pending. |
-| `investment-checklist` | 🇨🇳 Chinese only (`_zh.md`) | Six-gate pre-buy screen. Port pending. |
-| `financial-data` | 🇨🇳 Chinese only (`_zh.md`) | Spec for fetching + cross-validating financial data from ≥2 sources. Port pending. |
+| `news-pulse` | ✅ English | Rapid (~10 min) attribution of a sharp price move. The direct trigger from the daily brief. |
+| `investment-research` | ✅ English | Full four-master (Buffett/Munger/Duan/Li Lu) 7-module deep dive on one company. |
+| `investment-checklist` | ✅ English | Six-gate pre-buy screen + mirror test + rapid veto. Eliminates bad choices. |
+| `financial-data` | ✅ English | Spec for fetching + cross-validating financial data from ≥2 sources. |
 
-Original Chinese versions preserved as `*_zh.md` for fidelity to the upstream
-prompt engineering. English ports are added incrementally; the `_zh` files are
-the source of truth until a port is written.
+All four skills are English-ported for the US+EU workflow. The original Chinese
+versions are preserved as `*_zh.md` for fidelity to the upstream prompt
+engineering. Tool paths in the English ports are relative (`tools/...`), run
+from the repo root; the `_zh` files retain the upstream `~/ai-berkshire/...`
+absolute paths and are kept for reference only.
 
 ## Tool: financial_rigor.py
 
@@ -48,6 +50,28 @@ checkpoints:
 - `three-scenario` — optimistic/neutral/pessimistic target price
 - `benford` — first-digit anomaly detection
 - `calc` — arbitrary precise financial expression
+
+## Tool: report_audit.py
+
+`tools/report_audit.py` — the data spot-check exit gate for `investment-research`.
+Stdlib-only, matches `financial_rigor.py`'s style. After a report is written,
+the skill samples ~15% of the figures it cited, re-fetches each from a reliable
+source, and compares fetched vs reported (Decimal precision):
+
+- `extract --report <path>` — scan a report `.md`, emit a JSON template of
+  sampled figures with `fetched_value` fields to fill
+- `verdict --results '<json>' --report <name>` — ≤1% divergence across all
+  items = PASS (publishable); any item >1% = REJECT (fix and re-audit)
+
+## EU cross-validation gap
+
+Third-party fundamental coverage for EU names is thinner and less consistent
+than for US. macrotrends covers EU ADRs inconsistently; stockanalysis coverage
+varies by exchange. `financial-data.md` handles this honestly: the annual
+report is the tie-breaker, and where only one third-party source exists the
+figure is tagged `[single-source]` rather than forcing a false cross-check.
+Cash-flow and segment data are the most commonly missing on EU third-party
+sites.
 
 ## Markets
 

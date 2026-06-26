@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Market Brief — {{ run_id }}</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a1f2e; --panel2: #232a3d; --text: #e4e7eb;
+    --muted: #8b95a7; --green: #2e7d32; --red: #c62828; --amber: #b8860b;
+    --blue: #1565c0; --border: #2d3548;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif; font-size: 14px; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  header { display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .badges { display: flex; gap: 8px; }
+  .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.blocker { background: rgba(198,40,40,.2); color: #ff6b6b; }
+  .badge.weak { background: rgba(184,134,11,.2); color: #ffd43b; }
+  .badge.ok { background: rgba(46,125,50,.2); color: #69db7c; }
+  section { margin-bottom: 32px; }
+  h2 { font-size: 16px; margin: 0 0 12px; color: var(--text);
+    border-left: 3px solid var(--blue); padding-left: 10px; }
+  .index-line { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
+    border-radius: 8px; overflow: hidden; }
+  th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+  th { background: var(--panel2); color: var(--muted); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  td:first-child, th:first-child { text-align: left; }
+  td.ticker { font-weight: 600; }
+  td.ticker small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .pos { color: #69db7c; } .neg { color: #ff6b6b; } .flat { color: var(--muted); }
+  .action-tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .action-tag.research_deeper { background: rgba(198,40,40,.25); color: #ff8787; }
+  .action-tag.watch { background: rgba(21,101,192,.25); color: #74c0fc; }
+  .action-tag.no_action { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border-radius: 8px; padding: 16px; border-top: 3px solid var(--border); }
+  .card.bullish { border-top-color: var(--green); }
+  .card.bearish { border-top-color: var(--red); }
+  .card.neutral { border-top-color: var(--amber); }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .card-head h3 { margin: 0; font-size: 15px; }
+  .card-price { font-size: 13px; color: var(--muted); }
+  .conclusion { font-size: 13px; color: var(--text); margin: 8px 0;
+    padding: 8px 10px; background: var(--panel2); border-radius: 4px;
+    border-left: 2px solid var(--border); }
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--panel2); color: var(--muted); }
+  .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+  .lists h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+  .lists ul { margin: 0; padding-left: 16px; font-size: 12px; }
+  .lists li { margin-bottom: 3px; line-height: 1.4; }
+  .news { margin-top: 8px; }
+  .news a { color: #74c0fc; text-decoration: none; font-size: 12px; display: block;
+    padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .news a:hover { text-decoration: underline; }
+  .spark { float: right; opacity: .9; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 24px;
+    padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Daily Market Brief</h1>
+      <div class="meta">{{ run_id }} · generated {{ generated_at }}</div>
+    </div>
+    <div class="badges">
+      {% set bs = gaps.by_severity or {} %}
+      {% if bs.get('blocker', 0) %}<span class="badge blocker">{{ bs.blocker }} blocker</span>{% endif %}
+      {% if bs.get('weak', 0) %}<span class="badge weak">{{ bs.weak }} weak</span>{% endif %}
+      {% if gaps.total == 0 %}<span class="badge ok">no gaps</span>{% endif %}
+    </div>
+  </header>
+
+  {% for region, rd in analysis.items() %}
+  {% set idx = rd.index %}
+  <section>
+    <h2>{{ region }} — {{ idx.symbol }}</h2>
+    <div class="index-line">
+      <strong>{{ idx.price }}</strong> {{ idx.currency or '' }}
+      (1d {{ fmt_pct(idx.change_1d_pct) }} · 1w {{ fmt_pct(idx.change_1w_pct) }} · 1m {{ fmt_pct(idx.change_1m_pct) }})
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th><th>Price</th><th>1d</th><th>1w</th><th>1m</th>
+          <th>RSI</th><th>P/E</th><th>Fwd P/E</th><th>D/E</th>
+          <th>Target</th><th>Signal</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in rd.tickers %}
+        <tr>
+          <td class="ticker">{{ signal_emoji(t.signal) }} {{ t.symbol }}<small>{{ (t.name or '')[:22] }}</small></td>
+          <td>{{ t.price }} <small>{{ t.currency or '' }}</small></td>
+          <td class="{{ 'pos' if (t.change_1d_pct or 0) > 0 else ('neg' if (t.change_1d_pct or 0) < 0 else 'flat') }}">{{ fmt_pct(t.change_1d_pct) }}</td>
+          <td class="{{ 'pos' if (t.change_1w_pct or 0) > 0 else ('neg' if (t.change_1w_pct or 0) < 0 else 'flat') }}">{{ fmt_pct(t.change_1w_pct) }}</td>
+          <td class="{{ 'pos' if (t.change_1m_pct or 0) > 0 else ('neg' if (t.change_1m_pct or 0) < 0 else 'flat') }}">{{ fmt_pct(t.change_1m_pct) }}</td>
+          <td>{{ fmt_num(t.rsi_14) }}</td>
+          <td>{{ fmt_num(t.pe_ratio) }}</td>
+          <td>{{ fmt_num(t.forward_pe) }}</td>
+          <td>{{ fmt_num(t.debt_to_equity) }}</td>
+          <td>{{ fmt_num(t.analyst_target_mean) }}</td>
+          <td>{{ t.signal or 'neutral' }}</td>
+          <td><span class="action-tag {{ t.action or 'no_action' }}">{{ action_label(t.action) }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+
+  <section>
+    <h2>Ticker detail</h2>
+    <div class="cards">
+      {% for region, rd in analysis.items() %}
+      {% for t in rd.tickers %}
+      {% if t.action in ('research_deeper', 'watch') or t.confidence == 'high' %}
+      <div class="card {{ t.signal or 'neutral' }}">
+        <div class="card-head">
+          <h3>{{ signal_emoji(t.signal) }} {{ t.symbol }} — {{ (t.name or '')[:28] }}</h3>
+          <span class="card-price">{{ t.price }} {{ t.currency or '' }} · {{ fmt_pct(t.change_1d_pct) }} 1d</span>
+        </div>
+        <div class="spark">{{ sparkline(t.sparkline) | safe }}</div>
+        <div class="pill-row">
+          {% if t.sector %}<span class="pill">{{ t.sector }}</span>{% endif %}
+          {% if t.rsi_14 is not none %}<span class="pill">RSI {{ t.rsi_14 }}</span>{% endif %}
+          {% if t.pe_ratio is not none %}<span class="pill">P/E {{ t.pe_ratio }}</span>{% endif %}
+          {% if t.volatility_20d is not none %}<span class="pill">vol {{ t.volatility_20d }}%</span>{% endif %}
+          {% if t.beta_vs_index is not none %}<span class="pill">β {{ t.beta_vs_index }}</span>{% endif %}
+          {% if t.next_earnings_date %}<span class="pill">⚙ {{ t.next_earnings_date[:10] }}</span>{% endif %}
+        </div>
+        <div class="conclusion">{{ t.core_conclusion or '' }}</div>
+        <div class="lists">
+          <div>
+            <h4>Drivers</h4>
+            <ul>{% for d in (t.drivers or []) %}<li>{{ d }}</li>{% endfor %}</ul>
+          </div>
+          <div>
+            <h4>Risks</h4>
+            <ul>{% for r in (t.risks or []) %}<li>{{ r }}</li>{% endfor %}</ul>
+          </div>
+        </div>
+        {% if t.news %}
+        <div class="news">
+          {% for n in t.news[:4] %}
+            {% if n.url %}<a href="{{ n.url }}" target="_blank" rel="noopener">{{ n.title }}</a>
+            {% else %}<a>{{ n.title }}</a>{% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <footer>Neutral signal = data-driven summary, not investment advice. · {{ gaps.total }} gaps logged.</footer>
+</div>
+<script type="application/json" id="analysis-data">{{ analysis_json | safe }}</script>
+</body>
+</html>

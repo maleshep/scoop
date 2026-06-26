@@ -45,14 +45,31 @@ SCHEMA = {
 }
 
 
+def _fmt(v, suffix=""):
+    if v is None:
+        return "n/a"
+    return f"{v}{suffix}"
+
+
 def _user_prompt(tk: dict, news: list[dict], region: str, index: dict) -> str:
     news_lines = "\n".join(f"- {n['title']}" for n in news) or "(no news found)"
+    macd = tk.get("macd") or {}
     return f"""REGION: {region}
 REGION INDEX: {index.get('symbol')} @ {index.get('price')} (1d {index.get('change_1d_pct')}% | 1w {index.get('change_1w_pct')}% | 1m {index.get('change_1m_pct')}%)
 
-TICKER: {tk['symbol']} — {tk.get('name','')}
+TICKER: {tk['symbol']} — {tk.get('name','')} ({tk.get('sector','?')} / {tk.get('industry','?')})
 PRICE: {tk['price']} {tk.get('currency','')}  (1d {tk['change_1d_pct']}% | 1w {tk['change_1w_pct']}% | 1m {tk['change_1m_pct']}%)
-FUNDAMENTALS: P/E {tk.get('pe_ratio')} | market_cap {tk.get('market_cap')} | div_yield {tk.get('dividend_yield')}
+EXCESS MOVE vs INDEX: {tk.get('change_1d_vs_index','n/a')}%  | peer rank {tk.get('change_1d_pct_rank','n/a')} (0=worst, 1=best in region)
+
+FUNDAMENTALS:
+  P/E {tk.get('pe_ratio')} | forward P/E {tk.get('forward_pe')} | P/B {tk.get('price_to_book')} | EPS {tk.get('eps_trailing')}
+  ROE {tk.get('roe')} | debt/equity {tk.get('debt_to_equity')} | profit margin {tk.get('profit_margin')} | revenue growth {tk.get('revenue_growth')}
+  market_cap {tk.get('market_cap')} | div_yield {tk.get('dividend_yield')}
+  analyst target mean {tk.get('analyst_target_mean')} | recommendation {tk.get('recommendation')} | next earnings {tk.get('next_earnings_date')}
+
+TECHNICALS:
+  RSI(14) {tk.get('rsi_14')} | MACD {macd.get('macd_line')} / signal {macd.get('signal_line')} / hist {macd.get('histogram')}
+  20d avg volume {tk.get('avg_volume_20d')} | 20d volatility(ann.) {tk.get('volatility_20d')}% | beta {tk.get('beta')} / beta_vs_index {tk.get('beta_vs_index')}
 
 RECENT NEWS:
 {news_lines}
@@ -128,6 +145,12 @@ def analyze_ticker(tk: dict, news: list[dict], region: str, index: dict, gaps=No
             gaps.add(tk["symbol"], "price", "blocker", "no 1-day price change — cannot assess daily direction")
         if not news:
             gaps.add(tk["symbol"], "news", "blocker", "no news items — conclusion is technicals-only")
+        if tk.get("rsi_14") is None:
+            gaps.add(tk["symbol"], "technicals", "weak", "RSI missing — momentum context absent")
+        if tk.get("next_earnings_date") is None:
+            gaps.add(tk["symbol"], "calendar", "weak", "earnings date missing — catalyst timing unknown")
+        if tk.get("analyst_target_mean") is None:
+            gaps.add(tk["symbol"], "consensus", "weak", "no analyst target — valuation benchmark absent")
 
     try:
         result = _call_llm(prompt)
@@ -135,7 +158,31 @@ def analyze_ticker(tk: dict, news: list[dict], region: str, index: dict, gaps=No
         result["change_1d_pct"] = tk["change_1d_pct"]
         result["change_1w_pct"] = tk["change_1w_pct"]
         result["change_1m_pct"] = tk["change_1m_pct"]
+        result["change_1d_vs_index"] = tk.get("change_1d_vs_index")
+        result["change_1d_pct_rank"] = tk.get("change_1d_pct_rank")
         result["currency"] = tk.get("currency", "")
+        result["sector"] = tk.get("sector")
+        result["industry"] = tk.get("industry")
+        result["pe_ratio"] = tk.get("pe_ratio")
+        result["forward_pe"] = tk.get("forward_pe")
+        result["price_to_book"] = tk.get("price_to_book")
+        result["roe"] = tk.get("roe")
+        result["debt_to_equity"] = tk.get("debt_to_equity")
+        result["profit_margin"] = tk.get("profit_margin")
+        result["revenue_growth"] = tk.get("revenue_growth")
+        result["market_cap"] = tk.get("market_cap")
+        result["dividend_yield"] = tk.get("dividend_yield")
+        result["analyst_target_mean"] = tk.get("analyst_target_mean")
+        result["recommendation"] = tk.get("recommendation")
+        result["next_earnings_date"] = tk.get("next_earnings_date")
+        result["rsi_14"] = tk.get("rsi_14")
+        result["macd"] = tk.get("macd")
+        result["avg_volume_20d"] = tk.get("avg_volume_20d")
+        result["volatility_20d"] = tk.get("volatility_20d")
+        result["beta"] = tk.get("beta")
+        result["beta_vs_index"] = tk.get("beta_vs_index")
+        result["sparkline"] = tk.get("sparkline", [])
+        result["news"] = [{"title": n.get("title", ""), "url": n.get("url", ""), "sources": n.get("sources", [])} for n in news]
         return result
     except Exception as e:
         if gaps is not None:

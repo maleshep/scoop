@@ -62,7 +62,7 @@ WATCHLIST = {
         "tickers": ["AAPL", "MSFT", "NVDA", "JPM", "XOM"],
     },
     "EU": {
-        "index": "^STOXX",  # Euro Stoxx 50
+        "index": "^STOXX",  # STOXX Europe 600 (broad EU benchmark; ^STOXX50E = Euro Stoxx 50)
         "tickers": ["SAP.DE", "SHEL.L", "ASML.AS", "AIR.PA", "SIE.DE"],
     },
 }

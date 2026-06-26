@@ -1,10 +1,11 @@
 """Daily US/EU stock analysis — entrypoint.
 
 Pipeline: fetch OHLCV + fundamentals -> fetch multi-source news -> LLM analysis
-(GLM-5.2 by default, Claude fallback) -> markdown brief + gaps log.
+(GLM-5.2 by default, Claude fallback) -> markdown brief + HTML dashboard + gaps log.
 
 Run:  python main.py
 """
+import json
 import sys
 import traceback
 from datetime import datetime
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # explorations/
 
 import analyzer
 import config
+import dashboard
 import data_fetcher
 import news_fetcher
 import notifier
@@ -52,8 +54,19 @@ def run() -> str:
     md = report.render(analysis)
     path = report.save(md)
     gaps_path = gaps.save()
-    print(f"\nReport: {path}")
-    print(f"Gaps:   {gaps_path}  ({len(gaps)} gaps)")
+
+    # Structured JSON for downstream tooling (ai-berkshire runner reads this).
+    json_path = config.OUTPUT_DIR / f"analysis-{run_id}.json"
+    json_path.write_text(json.dumps(analysis, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
+
+    # Self-contained HTML dashboard.
+    html = dashboard.render_html(analysis, gaps, run_id)
+    html_path = dashboard.save(html, run_id)
+
+    print(f"\nReport:    {path}")
+    print(f"Dashboard: {html_path}")
+    print(f"JSON:      {json_path}")
+    print(f"Gaps:      {gaps_path}  ({len(gaps)} gaps)")
     notifier.notify(f"Daily Market Brief — {run_id}", md)
     return md
 
