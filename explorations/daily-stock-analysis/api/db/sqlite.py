@@ -1,0 +1,41 @@
+"""SQLite connection helper (WAL mode for concurrent-safe local access)."""
+import sqlite3
+from pathlib import Path
+
+import config
+
+DB_PATH = config.OUTPUT_DIR / "dsa.db"
+
+
+def get_conn() -> sqlite3.Connection:
+    config.OUTPUT_DIR.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def init_db() -> None:
+    conn = get_conn()
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS analysis_runs (
+                run_id TEXT PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                region TEXT,
+                signal TEXT,
+                confidence TEXT,
+                core_conclusion TEXT,
+                action TEXT,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_runs_symbol ON analysis_runs(symbol);
+            CREATE INDEX IF NOT EXISTS idx_runs_created ON analysis_runs(created_at DESC);
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
