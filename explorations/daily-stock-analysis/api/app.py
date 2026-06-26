@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # daily-stock-a
 from api.db.sqlite import init_db
 from api.routers.analysis import router as analysis_router
 from api.routers.stocks import router as stocks_router
+from api.routers.agent import router as agent_router
 
 
 def create_app() -> FastAPI:
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
 
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(stocks_router, prefix="/api/v1")
+    app.include_router(agent_router, prefix="/api/v1")
     return app
 
 
